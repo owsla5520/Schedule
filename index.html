@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>家人照護排班表</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #faf7f2;
+    --warm-white: #fff9f0;
+    --brown-dark: #3d2b1f;
+    --brown-mid: #7a5c44;
+    --brown-light: #c4a882;
+    --accent-morning: #f5c97a;
+    --accent-afternoon: #e8956a;
+    --accent-night: #7b9cbf;
+    --accent-morning-bg: #fffbee;
+    --accent-afternoon-bg: #fff5f0;
+    --accent-night-bg: #f0f4fa;
+    --shadow: rgba(61,43,31,0.1);
+    --border: rgba(196,168,130,0.35);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Noto Sans TC', sans-serif; background: var(--cream); color: var(--brown-dark); min-height: 100vh; padding-bottom: 80px; }
+
+  #setupScreen {
+    position: fixed; inset: 0; background: var(--brown-dark); z-index: 999;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 32px 24px;
+  }
+  #setupScreen h2 { font-family: 'Noto Serif TC', serif; color: var(--cream); font-size: 1.2rem; margin-bottom: 8px; }
+  #setupScreen p { color: var(--brown-light); font-size: 0.78rem; text-align: center; line-height: 1.7; margin-bottom: 24px; }
+  #setupScreen input {
+    width: 100%; padding: 12px 14px; border-radius: 10px; border: 1.5px solid var(--brown-light);
+    background: rgba(255,255,255,0.08); color: var(--cream); font-size: 0.82rem;
+    font-family: 'Noto Sans TC', sans-serif; outline: none; margin-bottom: 12px;
+  }
+  #setupScreen input::placeholder { color: rgba(196,168,130,0.5); }
+  #setupScreen button {
+    width: 100%; padding: 13px; border-radius: 10px; border: none;
+    background: var(--accent-afternoon); color: white; font-size: 0.88rem;
+    font-family: 'Noto Sans TC', sans-serif; font-weight: 500; cursor: pointer;
+  }
+  .setup-note { font-size: 0.65rem !important; color: rgba(196,168,130,0.6) !important; margin-top: 16px !important; }
+
+  header { background: var(--brown-dark); padding: 18px 16px 14px; text-align: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(0,0,0,0.2); }
+  header h1 { font-family: 'Noto Serif TC', serif; font-size: 1.2rem; color: var(--cream); letter-spacing: 0.1em; }
+  header p { font-size: 0.68rem; color: var(--brown-light); margin-top: 3px; }
+
+  .week-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--warm-white); border-bottom: 1px solid var(--border); position: sticky; top: 62px; z-index: 99; }
+  .week-nav button { background: none; border: 1.5px solid var(--border); border-radius: 8px; padding: 6px 12px; color: var(--brown-mid); font-size: 0.78rem; cursor: pointer; font-family: 'Noto Sans TC', sans-serif; }
+  .week-nav button:active { background: var(--brown-dark); color: var(--cream); }
+  .week-label { font-family: 'Noto Serif TC', serif; font-size: 0.88rem; color: var(--brown-dark); font-weight: 600; text-align: center; }
+  .week-label small { display: block; font-family: 'Noto Sans TC', sans-serif; font-size: 0.66rem; color: var(--brown-mid); font-weight: 400; margin-top: 1px; }
+
+  .view-toggle { display: flex; margin: 10px 14px 0; background: var(--warm-white); border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .vtab { flex: 1; padding: 9px; text-align: center; font-size: 0.75rem; cursor: pointer; color: var(--brown-mid); transition: all 0.2s; font-family: 'Noto Sans TC', sans-serif; }
+  .vtab.active { background: var(--brown-dark); color: var(--cream); }
+
+  .legend { display: flex; gap: 12px; padding: 8px 14px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 4px; font-size: 0.63rem; color: var(--brown-mid); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .tabs { display: flex; background: var(--warm-white); border-bottom: 2px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: 1; min-width: 48px; padding: 9px 2px 7px; text-align: center; cursor: pointer; font-size: 0.68rem; color: var(--brown-mid); border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.2s; line-height: 1.3; }
+  .tab .tab-date { font-size: 1rem; font-weight: 600; font-family: 'Noto Serif TC', serif; }
+  .tab.active { color: var(--brown-dark); border-bottom-color: var(--accent-afternoon); }
+  .tab.today .tab-date { color: var(--accent-afternoon); }
+
+  .day-view { padding: 12px 14px 20px; }
+  .day-header { font-size: 0.75rem; color: var(--brown-mid); margin-bottom: 12px; font-family: 'Noto Serif TC', serif; }
+
+  .shift-card { background: white; border-radius: 14px; margin-bottom: 12px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow); border: 1px solid var(--border); }
+  .shift-header { display: flex; align-items: center; gap: 10px; padding: 11px 14px 9px; border-bottom: 1px solid var(--border); }
+  .shift-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .shift-morning .shift-dot { background: var(--accent-morning); }
+  .shift-afternoon .shift-dot { background: var(--accent-afternoon); }
+  .shift-night .shift-dot { background: var(--accent-night); }
+  .shift-morning .shift-header { background: var(--accent-morning-bg); }
+  .shift-afternoon .shift-header { background: var(--accent-afternoon-bg); }
+  .shift-night .shift-header { background: var(--accent-night-bg); }
+  .shift-info { flex: 1; }
+  .shift-name { font-size: 0.85rem; font-weight: 600; font-family: 'Noto Serif TC', serif; }
+  .shift-time { font-size: 0.66rem; color: var(--brown-mid); margin-top: 1px; }
+  .shift-body { padding: 12px 14px 14px; }
+
+  .caregiver-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .caregiver-row label { font-size: 0.68rem; color: var(--brown-mid); white-space: nowrap; width: 44px; }
+  .caregiver-input { flex: 1; border: 1.5px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 0.85rem; font-family: 'Noto Sans TC', sans-serif; color: var(--brown-dark); background: var(--cream); outline: none; transition: border-color 0.2s; }
+  .caregiver-input:focus { border-color: var(--brown-light); background: white; }
+  .caregiver-input::placeholder { color: #ccc; font-size: 0.76rem; }
+  .note-row { margin-top: 4px; }
+  .note-row label { display: block; font-size: 0.66rem; color: var(--brown-mid); margin-bottom: 5px; }
+  .note-input { width: 100%; border: 1.5px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 0.8rem; font-family: 'Noto Sans TC', sans-serif; color: var(--brown-dark); background: var(--cream); outline: none; resize: none; height: 56px; line-height: 1.5; transition: border-color 0.2s; }
+  .note-input:focus { border-color: var(--brown-light); background: white; }
+  .note-input::placeholder { color: #ccc; font-size: 0.73rem; }
+
+  .sync-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 0.62rem; color: var(--brown-mid); padding: 3px 8px; background: var(--warm-white); border: 1px solid var(--border); border-radius: 20px; transition: all 0.3s; }
+  .sync-badge.syncing { color: var(--accent-afternoon); border-color: var(--accent-afternoon); }
+  .sync-badge.saved { color: #5a9e6f; border-color: #5a9e6f; }
+  .sync-badge.error { color: #c0392b; border-color: #c0392b; }
+  .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .sync-dot.spin { animation: pulse 1s infinite; }
+  .shift-footer { display: flex; justify-content: flex-end; padding: 0 14px 10px; }
+
+  .overview-section { padding: 12px 14px 20px; }
+  .overview-title { font-family: 'Noto Serif TC', serif; font-size: 0.95rem; font-weight: 700; margin-bottom: 10px; }
+  .overview-grid { background: white; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow); border: 1px solid var(--border); }
+  .overview-row { display: grid; grid-template-columns: 48px 1fr 1fr 1fr; border-bottom: 1px solid var(--border); }
+  .overview-row:last-child { border-bottom: none; }
+  .overview-head { background: var(--brown-dark); color: var(--cream); font-size: 0.6rem; font-weight: 500; display: flex; align-items: center; justify-content: center; padding: 8px 2px; text-align: center; line-height: 1.4; }
+  .overview-day { background: var(--brown-dark); color: var(--cream); font-size: 0.68rem; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 2px; line-height: 1.4; border-right: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
+  .overview-day .ov-date { font-size: 0.95rem; font-family: 'Noto Serif TC', serif; }
+  .overview-day .ov-today-dot { width: 5px; height: 5px; background: var(--accent-afternoon); border-radius: 50%; margin-top: 2px; }
+  .overview-cell { padding: 6px 4px; font-size: 0.68rem; color: var(--brown-dark); border-right: 1px solid var(--border); min-height: 36px; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.4; word-break: break-all; cursor: pointer; }
+  .overview-cell:last-child { border-right: none; }
+  .overview-cell.morning { background: var(--accent-morning-bg); }
+  .overview-cell.afternoon { background: var(--accent-afternoon-bg); }
+  .overview-cell.night { background: var(--accent-night-bg); }
+  .overview-cell.empty { color: #ccc; font-size: 0.6rem; }
+
+  .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid var(--border); display: flex; padding: 10px 14px; gap: 10px; box-shadow: 0 -4px 16px var(--shadow); z-index: 100; }
+  .btn-main { flex: 1; padding: 12px; border-radius: 10px; border: none; font-family: 'Noto Sans TC', sans-serif; font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+  .btn-save { background: var(--brown-dark); color: var(--cream); }
+  .btn-print { background: var(--cream); color: var(--brown-mid); border: 1.5px solid var(--border); }
+  .btn-settings { background: var(--cream); color: var(--brown-mid); border: 1.5px solid var(--border); flex: 0; padding: 12px 14px; }
+
+  .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--brown-dark); color: var(--cream); padding: 10px 20px; border-radius: 20px; font-size: 0.78rem; opacity: 0; transition: all 0.3s; pointer-events: none; z-index: 200; white-space: nowrap; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .loading-bar { height: 2px; background: var(--accent-afternoon); width: 0; transition: width 0.4s; position: fixed; top: 0; left: 0; z-index: 999; }
+  .loading-bar.active { width: 70%; }
+  .loading-bar.done { width: 100%; opacity: 0; transition: width 0.2s, opacity 0.4s 0.2s; }
+</style>
+</head>
+<body>
+
+<div id="setupScreen">
+  <h2>🏠 排班表設定</h2>
+  <p>請貼上你的 Google Apps Script<br>部署網址（Web App URL）</p>
+  <input type="url" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/...">
+  <button onclick="saveScriptUrl()">開始使用</button>
+  <p class="setup-note">網址只存在你的裝置上，不會上傳到任何地方</p>
+</div>
+
+<div class="loading-bar" id="loadingBar"></div>
+
+<header>
+  <h1>🏠 家人照護排班表</h1>
+  <p>大家一起分工，照顧我們最重要的人</p>
+</header>
+
+<div class="week-nav">
+  <button onclick="changeWeek(-1)">← 上週</button>
+  <div class="week-label">
+    <span id="weekLabel"></span>
+    <small id="weekRange"></small>
+  </div>
+  <button onclick="changeWeek(1)">下週 →</button>
+</div>
+
+<div class="view-toggle">
+  <div class="vtab active" id="vtab-day" onclick="switchView('day')">📋 每日編輯</div>
+  <div class="vtab" id="vtab-week" onclick="switchView('week')">📅 週覽</div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent-morning)"></div>早班 09:00–17:00</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent-afternoon)"></div>中班 17:00–00:00</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent-night)"></div>晚班 00:00–09:00</div>
+</div>
+
+<div class="tabs" id="dayTabs"></div>
+
+<div id="viewDay">
+  <div class="day-view" id="dayContent"></div>
+</div>
+
+<div id="viewWeek" style="display:none">
+  <div class="overview-section">
+    <div class="overview-title">📅 本週排班總覽</div>
+    <div class="overview-grid" id="weekGrid"></div>
+    <p style="font-size:0.65rem;color:var(--brown-mid);margin-top:10px;text-align:center;">點選任一列可跳到該天編輯</p>
+  </div>
+</div>
+
+<div class="bottom-bar">
+  <button class="btn-main btn-save" onclick="saveAll()">💾 儲存</button>
+  <button class="btn-main btn-print" onclick="printSchedule()">🖨 列印</button>
+  <button class="btn-main btn-settings" onclick="resetSetup()" title="重設網址">⚙️</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SHIFTS = [
+  { key: 'morning',   label: '早班', time: '09:00 – 17:00', cls: 'shift-morning',   emoji: '🌤' },
+  { key: 'afternoon', label: '中班', time: '17:00 – 00:00', cls: 'shift-afternoon', emoji: '🌆' },
+  { key: 'night',     label: '晚班', time: '00:00 – 09:00', cls: 'shift-night',     emoji: '🌙' },
+];
+const DAYS_ZH = ['日','一','二','三','四','五','六'];
+const STORAGE_KEY = 'careScriptUrl';
+const CACHE_KEY = 'careCache';
+
+let SCRIPT_URL = localStorage.getItem(STORAGE_KEY) || '';
+let currentWeekOffset = 0;
+let selectedDayIndex = new Date().getDay();
+let scheduleData = {};
+let currentView = 'day';
+let cbCounter = 0;
+
+// ── Setup ──
+function saveScriptUrl() {
+  const val = document.getElementById('scriptUrlInput').value.trim();
+  if (!val.startsWith('https://script.google.com')) {
+    showToast('⚠️ 請貼上正確的 Apps Script 網址');
+    return;
+  }
+  SCRIPT_URL = val;
+  localStorage.setItem(STORAGE_KEY, SCRIPT_URL);
+  document.getElementById('setupScreen').style.display = 'none';
+  init();
+}
+
+function resetSetup() {
+  if (confirm('重新設定 Apps Script 網址？')) {
+    localStorage.removeItem(STORAGE_KEY);
+    location.reload();
+  }
+}
+
+// ── JSONP ──
+function jsonp(url) {
+  return new Promise((resolve, reject) => {
+    const cbName = '_cb' + (cbCounter++);
+    const script = document.createElement('script');
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('timeout'));
+    }, 10000);
+    window[cbName] = (data) => {
+      cleanup();
+      resolve(data);
+    };
+    function cleanup() {
+      clearTimeout(timer);
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+    url += (url.includes('?') ? '&' : '?') + 'callback=' + cbName;
+    script.src = url;
+    script.onerror = () => { cleanup(); reject(new Error('script error')); };
+    document.head.appendChild(script);
+  });
+}
+
+// ── Date helpers ──
+function getWeekDates(offset) {
+  const now = new Date();
+  const start = new Date(now);
+  start.setDate(now.getDate() - now.getDay() + offset * 7);
+  start.setHours(0,0,0,0);
+  return Array.from({length:7}, (_,i) => { const d = new Date(start); d.setDate(start.getDate()+i); return d; });
+}
+function dateKey(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function isToday(d) { return dateKey(d) === dateKey(new Date()); }
+
+function setLoading(on) {
+  const bar = document.getElementById('loadingBar');
+  bar.className = on ? 'loading-bar active' : 'loading-bar done';
+  if (!on) setTimeout(() => bar.className = 'loading-bar', 600);
+}
+
+// ── API ──
+async function fetchWeek(offset) {
+  const dates = getWeekDates(offset);
+  const from = dateKey(dates[0]);
+  const to = dateKey(dates[6]);
+  setLoading(true);
+  try {
+    const url = SCRIPT_URL + '?action=read&from=' + from + '&to=' + to;
+    const json = await jsonp(url);
+    if (json.ok) {
+      Object.assign(scheduleData, json.data);
+      localStorage.setItem(CACHE_KEY, JSON.stringify(scheduleData));
+    }
+  } catch(e) {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) scheduleData = JSON.parse(cached);
+    showToast('⚠️ 無法連線，顯示暫存資料');
+  }
+  setLoading(false);
+}
+
+async function writeShift(date, shift, caregiver, note) {
+  setSyncBadge(shift, 'syncing');
+  try {
+    const url = SCRIPT_URL
+      + '?action=write'
+      + '&date=' + encodeURIComponent(date)
+      + '&shift=' + encodeURIComponent(shift)
+      + '&caregiver=' + encodeURIComponent(caregiver)
+      + '&note=' + encodeURIComponent(note);
+    const json = await jsonp(url);
+    if (json.ok) {
+      if (!scheduleData[date]) scheduleData[date] = {};
+      scheduleData[date][shift] = { caregiver, note };
+      localStorage.setItem(CACHE_KEY, JSON.stringify(scheduleData));
+      setSyncBadge(shift, 'saved');
+    } else {
+      setSyncBadge(shift, 'error');
+    }
+  } catch(e) {
+    if (!scheduleData[date]) scheduleData[date] = {};
+    scheduleData[date][shift] = { caregiver, note };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(scheduleData));
+    setSyncBadge(shift, 'error');
+    showToast('⚠️ 連線失敗，已存本地');
+  }
+}
+
+function setSyncBadge(shift, state) {
+  const badge = document.getElementById('sync-' + shift);
+  if (!badge) return;
+  const dot = badge.querySelector('.sync-dot');
+  const label = badge.querySelector('.sync-label');
+  badge.className = 'sync-badge ' + state;
+  const map = { syncing: ['spin','同步中…'], saved: ['','已儲存 ✓'], error: ['','未同步 ✗'], '': ['','未更動'] };
+  const [cls, text] = map[state] || map[''];
+  dot.className = 'sync-dot' + (cls ? ' ' + cls : '');
+  label.textContent = text;
+}
+
+async function saveAll() {
+  const dates = getWeekDates(currentWeekOffset);
+  const date = dates[selectedDayIndex];
+  const dk = dateKey(date);
+  await Promise.all(SHIFTS.map(async s => {
+    const inp = document.getElementById('caregiver-' + s.key);
+    const note = document.getElementById('note-' + s.key);
+    if (inp) await writeShift(dk, s.key, inp.value.trim(), note ? note.value.trim() : '');
+  }));
+  showToast('✅ 全部儲存完成！');
+  renderWeekGrid();
+}
+
+function setupAutoSave(shiftKey) {
+  const inp = document.getElementById('caregiver-' + shiftKey);
+  const note = document.getElementById('note-' + shiftKey);
+  const dates = getWeekDates(currentWeekOffset);
+  const dk = dateKey(dates[selectedDayIndex]);
+  const save = () => writeShift(dk, shiftKey, inp ? inp.value.trim() : '', note ? note.value.trim() : '');
+  if (inp) inp.addEventListener('blur', save);
+  if (note) note.addEventListener('blur', save);
+}
+
+// ── Render ──
+function renderWeekNav() {
+  const dates = getWeekDates(currentWeekOffset);
+  const fmt = d => (d.getMonth()+1) + '/' + d.getDate();
+  const label = currentWeekOffset === 0 ? '本週' : currentWeekOffset === -1 ? '上週' : currentWeekOffset === 1 ? '下週' : (currentWeekOffset > 0 ? '+' : '') + currentWeekOffset + ' 週';
+  document.getElementById('weekLabel').textContent = label;
+  document.getElementById('weekRange').textContent = fmt(dates[0]) + ' – ' + fmt(dates[6]);
+}
+
+function renderTabs() {
+  const dates = getWeekDates(currentWeekOffset);
+  const container = document.getElementById('dayTabs');
+  container.innerHTML = '';
+  dates.forEach((d, i) => {
+    const div = document.createElement('div');
+    div.className = 'tab' + (i === selectedDayIndex ? ' active' : '') + (isToday(d) ? ' today' : '');
+    div.innerHTML = '<div class="tab-date">' + d.getDate() + '</div><div>週' + DAYS_ZH[d.getDay()] + '</div>';
+    div.onclick = () => { selectedDayIndex = i; renderTabs(); renderDayContent(); };
+    container.appendChild(div);
+  });
+}
+
+function renderDayContent() {
+  const dates = getWeekDates(currentWeekOffset);
+  const date = dates[selectedDayIndex];
+  const dk = dateKey(date);
+  const dayData = scheduleData[dk] || {};
+  const container = document.getElementById('dayContent');
+  container.innerHTML = '<div class="day-header">' + (date.getMonth()+1) + ' 月 ' + date.getDate() + ' 日（週' + DAYS_ZH[date.getDay()] + '）</div>';
+  SHIFTS.forEach(s => {
+    const saved = dayData[s.key] || {};
+    const card = document.createElement('div');
+    card.className = 'shift-card ' + s.cls;
+    card.innerHTML =
+      '<div class="shift-header"><div class="shift-dot"></div><div class="shift-info"><div class="shift-name">' + s.emoji + ' ' + s.label + '</div><div class="shift-time">' + s.time + '</div></div></div>' +
+      '<div class="shift-body">' +
+        '<div class="caregiver-row"><label>照顧者</label><input class="caregiver-input" id="caregiver-' + s.key + '" type="text" placeholder="輸入姓名" value="' + (saved.caregiver || '') + '"></div>' +
+        '<div class="note-row"><label>備註（狀況、交班事項）</label><textarea class="note-input" id="note-' + s.key + '" placeholder="例如：體溫 37.2、已服藥、需換藥…">' + (saved.note || '') + '</textarea></div>' +
+      '</div>' +
+      '<div class="shift-footer"><div class="sync-badge" id="sync-' + s.key + '"><div class="sync-dot"></div><span class="sync-label">未更動</span></div></div>';
+    container.appendChild(card);
+    setupAutoSave(s.key);
+  });
+}
+
+function renderWeekGrid() {
+  const dates = getWeekDates(currentWeekOffset);
+  const grid = document.getElementById('weekGrid');
+  grid.innerHTML = '<div class="overview-row"><div class="overview-head"></div><div class="overview-head">🌤 早班</div><div class="overview-head">🌆 中班</div><div class="overview-head">🌙 晚班</div></div>';
+  dates.forEach((d, i) => {
+    const dk = dateKey(d);
+    const dayData = scheduleData[dk] || {};
+    const row = document.createElement('div');
+    row.className = 'overview-row';
+    row.innerHTML = '<div class="overview-day"><div class="ov-date">' + d.getDate() + '</div>週' + DAYS_ZH[d.getDay()] + (isToday(d) ? '<div class="ov-today-dot"></div>' : '') + '</div>' +
+      SHIFTS.map(s => { const v = (dayData[s.key] || {}).caregiver || ''; return '<div class="overview-cell ' + s.key + (v ? '' : ' empty') + '">' + (v || '—') + '</div>'; }).join('');
+    row.onclick = () => { selectedDayIndex = i; switchView('day'); };
+    grid.appendChild(row);
+  });
+}
+
+function render() { renderWeekNav(); renderTabs(); renderDayContent(); renderWeekGrid(); }
+
+async function changeWeek(dir) {
+  currentWeekOffset += dir;
+  selectedDayIndex = currentWeekOffset === 0 ? new Date().getDay() : 0;
+  render();
+  await fetchWeek(currentWeekOffset);
+  renderDayContent(); renderWeekGrid();
+}
+
+function switchView(v) {
+  currentView = v;
+  document.getElementById('viewDay').style.display = v === 'day' ? 'block' : 'none';
+  document.getElementById('viewWeek').style.display = v === 'week' ? 'block' : 'none';
+  document.getElementById('dayTabs').style.display = v === 'day' ? 'flex' : 'none';
+  document.getElementById('vtab-day').classList.toggle('active', v === 'day');
+  document.getElementById('vtab-week').classList.toggle('active', v === 'week');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function printSchedule() {
+  const dates = getWeekDates(currentWeekOffset);
+  let rows = dates.map(d => {
+    const dk = dateKey(d);
+    const dayData = scheduleData[dk] || {};
+    return '<tr><td style="border:1px solid #ddd;padding:8px;font-size:0.78rem;text-align:center;background:#faf7f2;">' + (d.getMonth()+1) + '/' + d.getDate() + '<br>週' + DAYS_ZH[d.getDay()] + '</td>' +
+      SHIFTS.map(s => { const v = dayData[s.key] || {}; const note = v.note ? '<br><span style="color:#999;font-size:0.62rem">' + v.note + '</span>' : ''; return '<td style="border:1px solid #ddd;padding:8px;font-size:0.78rem;vertical-align:top;text-align:center;">' + (v.caregiver || '<span style="color:#ccc">—</span>') + note + '</td>'; }).join('') + '</tr>';
+  }).join('');
+  const win = window.open('', '_blank');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>排班表</title><style>body{font-family:sans-serif;padding:24px}table{width:100%;border-collapse:collapse}th{background:#3d2b1f;color:#faf7f2;padding:10px;font-size:0.8rem}</style></head><body><h2 style="font-size:1rem;margin-bottom:14px;">家人照護排班表　' + document.getElementById('weekRange').textContent + '</h2><table><tr><th>日期</th><th>🌤 早班 09–17</th><th>🌆 中班 17–00</th><th>🌙 晚班 00–09</th></tr>' + rows + '</table><script>window.onload=function(){window.print()}<\/script></body></html>');
+  win.document.close();
+}
+
+async function init() {
+  const cached = localStorage.getItem(CACHE_KEY);
+  if (cached) { try { scheduleData = JSON.parse(cached); } catch(e) {} }
+  render();
+  await fetchWeek(currentWeekOffset);
+  renderDayContent(); renderWeekGrid();
+}
+
+if (SCRIPT_URL) {
+  document.getElementById('setupScreen').style.display = 'none';
+  init();
+}
+</script>
+</body>
+</html>
